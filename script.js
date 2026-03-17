@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const querySnapshot = await db.collection("scores").orderBy("score", "desc").limit(3).get();
+            const querySnapshot = await db.collection("scores").orderBy("score", "desc").limit(5).get();
 
             rankingList.innerHTML = '';
             if (querySnapshot.empty) {
@@ -529,8 +529,8 @@ document.addEventListener('DOMContentLoaded', () => {
         score = Math.max(0, score - 10);
         scoreEl.textContent = score;
 
-        // ヒントの表示
-        hintDisplay.textContent = currentQuestionData.hintText;
+        // ヒントの表示（複数の場合は改行させる）
+        hintDisplay.innerHTML = currentQuestionData.hintText.replace(/, /g, '<br>');
         hintDisplay.classList.remove('hidden');
 
         // 1問につき1回しか押せないようにする

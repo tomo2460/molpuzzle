@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let wrongQuestions = [];
     let currentReviewIndex = 0;
     let currentQuestionData = null;
+    let currentHintStage = 0; // 追加: 0=未クリック, 1=1回目(原子量)クリック済, 2=2回目(分子/式量)クリック済
 
     // === 音響エフェクト（Web Audio API） ===
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -261,15 +262,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const substances = [
-        { name: "水(H₂O)", mass: 18.0, isGas: false, hint: "H = 1.0, O = 16" },
-        { name: "二酸化炭素(CO₂)", mass: 44.0, isGas: true, hint: "C = 12, O = 16" },
-        { name: "酸素(O₂)", mass: 32.0, isGas: true, hint: "O = 16" },
-        { name: "水素(H₂)", mass: 2.0, isGas: true, hint: "H = 1.0" },
-        { name: "窒素(N₂)", mass: 28.0, isGas: true, hint: "N = 14" },
-        { name: "炭素(C)", mass: 12.0, isGas: false, hint: "C = 12" },
-        { name: "塩化ナトリウム(NaCl)", mass: 58.5, isGas: false, hint: "Na = 23, Cl = 35.5" },
-        { name: "アンモニア(NH₃)", mass: 17.0, isGas: true, hint: "N = 14, H = 1.0" },
-        { name: "メタン(CH₄)", mass: 16.0, isGas: true, hint: "C = 12, H = 1.0" }
+        { name: "水(H₂O)", mass: 18.0, isGas: false, hint: "H = 1.0, O = 16", hint2Type: "分子量" },
+        { name: "二酸化炭素(CO₂)", mass: 44.0, isGas: true, hint: "C = 12, O = 16", hint2Type: "分子量" },
+        { name: "酸素(O₂)", mass: 32.0, isGas: true, hint: "O = 16", hint2Type: "分子量" },
+        { name: "水素(H₂)", mass: 2.0, isGas: true, hint: "H = 1.0", hint2Type: "分子量" },
+        { name: "窒素(N₂)", mass: 28.0, isGas: true, hint: "N = 14", hint2Type: "分子量" },
+        { name: "炭素(C)", mass: 12.0, isGas: false, hint: "C = 12", hint2Type: "式量" },
+        { name: "塩化ナトリウム(NaCl)", mass: 58.5, isGas: false, hint: "Na = 23, Cl = 35.5", hint2Type: "式量" },
+        { name: "アンモニア(NH₃)", mass: 17.0, isGas: true, hint: "N = 14, H = 1.0", hint2Type: "分子量" },
+        { name: "メタン(CH₄)", mass: 16.0, isGas: true, hint: "C = 12, H = 1.0", hint2Type: "分子量" }
     ];
 
     const molPatterns = [0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0];
@@ -302,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // === 本格的な問題生成ロジック ===
     function generateQuestion() {
         // ヒントのリセット
+        currentHintStage = 0;
+        hintBtn.innerHTML = '💡 原子量を見る<br><span style="font-size: 0.8em;">-10pt</span>';
         hintBtn.disabled = false;
         hintDisplay.classList.add('hidden');
         if (isReviewMode) {
@@ -374,7 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuestionData = {
             html: questionEl.innerHTML,
             options: [...options], // シャッフル後の選択肢配列をコピー
-            hintText: sub.hint // 物質ごとのヒントテキストを保持
+            hintText: sub.hint, // 物質ごとのヒントテキストを保持
+            hint2Text: `${sub.hint2Type}: ${sub.mass}`, // 2段階目のヒント（分子量/式量: 数値）
+            hint2Label: sub.hint2Type // ボタン表記変更用
         };
 
         // 選択肢のボタンを生成する際に、正解かどうかをdatasetに持たせる
@@ -521,20 +526,36 @@ document.addEventListener('DOMContentLoaded', () => {
     retryBtn.addEventListener('click', initGame);
     reviewBtn.addEventListener('click', initReviewMode);
 
-    // ヒントボタン挙動
+    // ヒントボタン挙動 (2段階)
     hintBtn.addEventListener('click', () => {
         if (hintBtn.disabled || isReviewMode) return;
 
-        // 10点減点（0未満にはならない）
-        score = Math.max(0, score - 10);
-        scoreEl.textContent = score;
+        if (currentHintStage === 0) {
+            // --- 1段階目（原子量表示） ---
+            score = Math.max(0, score - 10);
+            scoreEl.textContent = score;
 
-        // ヒントの表示（複数の場合は改行させる）
-        hintDisplay.innerHTML = currentQuestionData.hintText.replace(/, /g, '<br>');
-        hintDisplay.classList.remove('hidden');
+            // ヒントの表示（改行対応）
+            hintDisplay.innerHTML = currentQuestionData.hintText.replace(/, /g, '<br>');
+            hintDisplay.classList.remove('hidden');
 
-        // 1問につき1回しか押せないようにする
-        hintBtn.disabled = true;
+            // ボタンを2段階目に変更
+            currentHintStage = 1;
+            hintBtn.innerHTML = `💡 ${currentQuestionData.hint2Label}を見る<br><span style="font-size: 0.8em;">-50pt</span>`;
+
+        } else if (currentHintStage === 1) {
+            // --- 2段階目（分子量/式量表示） ---
+            score = Math.max(0, score - 50);
+            scoreEl.textContent = score;
+
+            // ヒント内容に追記（原子量改行版 + 区切り線 + 分子量/式量）
+            const baseHint = currentQuestionData.hintText.replace(/, /g, '<br>');
+            hintDisplay.innerHTML = `${baseHint}<hr style="margin: 4px 0; border: 1px dashed var(--text-main);">${currentQuestionData.hint2Text}`;
+
+            // これ以上押せなくする
+            currentHintStage = 2;
+            hintBtn.disabled = true;
+        }
     });
 
     titleBtn.addEventListener('click', () => {

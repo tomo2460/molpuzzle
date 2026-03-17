@@ -1,5 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+// Compat版（HTMLのscriptタグ）を使用するため、import文は不要です。
 
 // ==========================================
 // 🚨 TODO: ユーザー様へのお願い 🚨
@@ -19,8 +18,8 @@ let db = null;
 try {
     // APIキーが初期値以外なら正しく初期化する
     if (firebaseConfig.apiKey && firebaseConfig.apiKey.length > 20) {
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
     }
 } catch (e) {
     console.error("Firebase Initialization Error:", e);
@@ -35,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('start-btn');
     const retryBtn = document.getElementById('retry-btn');
     const titleBtn = document.getElementById('title-btn'); // 修正: shareBtn -> titleBtn
+    const reviewBtn = document.getElementById('review-btn'); // 追加: 復習ボタン
 
     const scoreEl = document.getElementById('score');
     const timeEl = document.getElementById('time');
@@ -46,11 +46,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const comboDisplay = document.getElementById('combo-display');
     const rankingList = document.getElementById('ranking-list'); // 追加: ランキングリスト
 
+    // ヒント機能要素
+    const hintBtn = document.getElementById('hint-btn');
+    const hintDisplay = document.getElementById('hint-display');
+
     // === ゲーム状態変数 ===
     let score = 0;
     let timeLeft = 60;
     let timerId = null;
     let combo = 0;
+
+    // === 復習モード用変数 ===
+    let isReviewMode = false;
+    let wrongQuestions = [];
+    let currentReviewIndex = 0;
+    let currentQuestionData = null;
 
     // === 音響エフェクト（Web Audio API） ===
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -151,8 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const q = query(collection(db, "scores"), orderBy("score", "desc"), limit(3));
-            const querySnapshot = await getDocs(q);
+            const querySnapshot = await db.collection("scores").orderBy("score", "desc").limit(3).get();
 
             rankingList.innerHTML = '';
             if (querySnapshot.empty) {
@@ -187,10 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // "scores" コレクションへ追加
-            await addDoc(collection(db, "scores"), {
+            await db.collection("scores").add({
                 name: playerName.slice(0, 10), // 名前は最大10文字に制限
                 score: finalScore,
-                createdAt: serverTimestamp()
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             alert('スコアを登録しました！タイトル画面で確認できます。');
             loadRanking(); // ランキング再取得
@@ -205,7 +214,12 @@ document.addEventListener('DOMContentLoaded', () => {
         playSound('start');
         score = 0;
         combo = 0;
+        isReviewMode = false;
+        wrongQuestions = [];
         scoreEl.textContent = score;
+        timeEl.textContent = 60;
+        document.querySelector('.score-display').childNodes[0].nodeValue = "SCORE: ";
+        document.querySelector('.time-display').childNodes[0].nodeValue = "TIME: ";
         comboDisplay.classList.add('hidden');
         showScreen(playScreen);
         startTimer();
@@ -227,6 +241,13 @@ document.addEventListener('DOMContentLoaded', () => {
         rankEl.textContent = rank;
         rankMessageEl.textContent = message;
 
+        // --- 復習ボタンの表示制御 ---
+        if (wrongQuestions.length > 0) {
+            reviewBtn.classList.remove('hidden');
+        } else {
+            reviewBtn.classList.add('hidden');
+        }
+
         // 終了時にスコア保存を試みる（非同期）
         setTimeout(() => {
             saveScore(score);
@@ -234,16 +255,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === データ定義 ===
+    // 構成元素と原子量
+    const atomicWeights = {
+        H: 1.0, C: 12, N: 14, O: 16, Na: 23, Cl: 35.5
+    };
+
     const substances = [
-        { name: "水(H₂O)", mass: 18.0, isGas: false },
-        { name: "二酸化炭素(CO₂)", mass: 44.0, isGas: true },
-        { name: "酸素(O₂)", mass: 32.0, isGas: true },
-        { name: "水素(H₂)", mass: 2.0, isGas: true },
-        { name: "窒素(N₂)", mass: 28.0, isGas: true },
-        { name: "炭素(C)", mass: 12.0, isGas: false },
-        { name: "塩化ナトリウム(NaCl)", mass: 58.5, isGas: false },
-        { name: "アンモニア(NH₃)", mass: 17.0, isGas: true },
-        { name: "メタン(CH₄)", mass: 16.0, isGas: true }
+        { name: "水(H₂O)", mass: 18.0, isGas: false, hint: "H = 1.0, O = 16" },
+        { name: "二酸化炭素(CO₂)", mass: 44.0, isGas: true, hint: "C = 12, O = 16" },
+        { name: "酸素(O₂)", mass: 32.0, isGas: true, hint: "O = 16" },
+        { name: "水素(H₂)", mass: 2.0, isGas: true, hint: "H = 1.0" },
+        { name: "窒素(N₂)", mass: 28.0, isGas: true, hint: "N = 14" },
+        { name: "炭素(C)", mass: 12.0, isGas: false, hint: "C = 12" },
+        { name: "塩化ナトリウム(NaCl)", mass: 58.5, isGas: false, hint: "Na = 23, Cl = 35.5" },
+        { name: "アンモニア(NH₃)", mass: 17.0, isGas: true, hint: "N = 14, H = 1.0" },
+        { name: "メタン(CH₄)", mass: 16.0, isGas: true, hint: "C = 12, H = 1.0" }
     ];
 
     const molPatterns = [0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0];
@@ -275,6 +301,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === 本格的な問題生成ロジック ===
     function generateQuestion() {
+        // ヒントのリセット
+        hintBtn.disabled = false;
+        hintDisplay.classList.add('hidden');
+        if (isReviewMode) {
+            // 復習モード中はヒントボタンそのものを隠す（ペナルティの概念がないため）
+            hintBtn.parentElement.classList.add('hidden');
+        } else {
+            hintBtn.parentElement.classList.remove('hidden');
+        }
+
         const sub = substances[Math.floor(Math.random() * substances.length)];
         const mol = molPatterns[Math.floor(Math.random() * molPatterns.length)];
 
@@ -297,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // お題の表示を変更（明示的にdivで囲んで改行させる）
         questionEl.innerHTML = `
             <div>${formats[questionType](mol)}</div>
-            <div style="font-size: 1.2rem; color: var(--text-main); font-weight: normal; margin-top: 0.2rem;">(${sub.name})</div>
+            <div style="font-size: 1.2rem; color: var(--text-main); font-weight: normal; margin-top: 0.2rem;">${sub.name}</div>
         `;
 
         const options = [{ text: formats[answerType](mol), isCorrect: true }];
@@ -333,6 +369,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // 選択肢をシャッフル
         options.sort(() => Math.random() - 0.5);
 
+        // --- ヒント表示機能のセット ---
+        // 毎回新しくイベントを付け直すのは非効率なので、ここではデータの保持のみ行う
+        currentQuestionData = {
+            html: questionEl.innerHTML,
+            options: [...options], // シャッフル後の選択肢配列をコピー
+            hintText: sub.hint // 物質ごとのヒントテキストを保持
+        };
+
         // 選択肢のボタンを生成する際に、正解かどうかをdatasetに持たせる
         optionsContainer.innerHTML = '';
         options.forEach(opt => {
@@ -352,25 +396,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isCorrect) {
             playSound('correct');
             btn.classList.add('correct');
-            combo++;
-            // コンボボーナス（例：基本100点 ＋ コンボ数×20点）
-            const earned = 100 + (combo * 20);
-            score += earned;
-            scoreEl.textContent = score;
 
-            if (combo >= 2) {
-                comboDisplay.innerHTML = `<span style="font-size:1.2em;">${combo}</span> COMBO!`;
-                comboDisplay.classList.remove('hidden');
-                // アニメーション再トリガーのための工夫
-                comboDisplay.style.animation = 'none';
-                comboDisplay.offsetHeight; /* trigger reflow */
-                comboDisplay.style.animation = null;
+            if (isReviewMode) {
+                // =============== 復習モード正解時 ===============
+                setTimeout(() => {
+                    optionsContainer.style.pointerEvents = 'auto';
+                    currentReviewIndex++;
+                    showReviewQuestion(); // 次の復習問題へ
+                }, 500); // 復習モードはゆっくりめに次へ
+            } else {
+                // =============== 通常ゲーム正解時 ===============
+                combo++;
+                // コンボボーナス（例：基本100点 ＋ コンボ数×20点）
+                const earned = 100 + (combo * 20);
+                score += earned;
+                scoreEl.textContent = score;
+
+                if (combo >= 2) {
+                    comboDisplay.innerHTML = `<span style="font-size:1.2em;">${combo}</span> COMBO!`;
+                    comboDisplay.classList.remove('hidden');
+                    // アニメーション再トリガーのための工夫
+                    comboDisplay.style.animation = 'none';
+                    comboDisplay.offsetHeight; /* trigger reflow */
+                    comboDisplay.style.animation = null;
+                }
+
+                setTimeout(() => {
+                    optionsContainer.style.pointerEvents = 'auto';
+                    generateQuestion();
+                }, 300); // すぐ次の問題へ
             }
-
-            setTimeout(() => {
-                optionsContainer.style.pointerEvents = 'auto';
-                generateQuestion();
-            }, 300); // すぐ次の問題へ
 
         } else {
             playSound('wrong');
@@ -384,24 +439,104 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            combo = 0;
-            comboDisplay.classList.add('hidden');
-            // ペナルティ: スコア減点 ＆ タイムロス
-            score = Math.max(0, score - 50);
-            scoreEl.textContent = score;
-            timeLeft = Math.max(0, timeLeft - 3);
-            timeEl.textContent = timeLeft;
+            if (isReviewMode) {
+                // =============== 復習モード不正解時 ===============
+                setTimeout(() => {
+                    optionsContainer.style.pointerEvents = 'auto';
+                    // 同じ問題をもう一度出し直す
+                    showReviewQuestion();
+                }, 1000);
+            } else {
+                // =============== 通常ゲーム不正解時 ===============
+                // 間違えた問題を保存する
+                wrongQuestions.push(currentQuestionData);
 
-            setTimeout(() => {
-                optionsContainer.style.pointerEvents = 'auto';
-                generateQuestion();
-            }, 800); // 間違えた時はどこが正解か見せるために少し長く止める（0.8秒）
+                combo = 0;
+                comboDisplay.classList.add('hidden');
+                // ペナルティ: スコア減点（スコア減算は残し、タイムロスのみ廃止）
+                score = Math.max(0, score - 50);
+                scoreEl.textContent = score;
+
+                setTimeout(() => {
+                    optionsContainer.style.pointerEvents = 'auto';
+                    generateQuestion();
+                }, 800); // 間違えた時はどこが正解か見せるために少し長く止める（0.8秒）
+            }
         }
+    }
+
+    // === 復習モード関連関数 ===
+    function initReviewMode() {
+        isReviewMode = true;
+        currentReviewIndex = 0;
+        showScreen(playScreen);
+
+        // ヘッダーの表示を復習モード用に変更
+        document.querySelector('.score-display').childNodes[0].nodeValue = "残問題: ";
+        scoreEl.textContent = wrongQuestions.length;
+        document.querySelector('.time-display').childNodes[0].nodeValue = "MODE: ";
+        timeEl.textContent = "復習";
+
+        comboDisplay.classList.add('hidden');
+        showReviewQuestion();
+    }
+
+    function showReviewQuestion() {
+        if (currentReviewIndex >= wrongQuestions.length) {
+            // 復習完了
+            alert("すべての復習が完了しました！よく頑張りました✨");
+            // 完了したため間違えリストをクリア
+            wrongQuestions = [];
+            reviewBtn.classList.add('hidden');
+            showScreen(resultScreen);
+            return;
+        }
+
+        // ヘッダーの残問題数を更新
+        scoreEl.textContent = wrongQuestions.length - currentReviewIndex;
+
+        const qData = wrongQuestions[currentReviewIndex];
+        questionEl.innerHTML = qData.html;
+
+        // 復習モード時はヒント領域を隠す
+        hintBtn.parentElement.classList.add('hidden');
+
+        optionsContainer.innerHTML = '';
+
+        // 毎回選択肢の場所をシャッフルし直す
+        const opts = [...qData.options].sort(() => Math.random() - 0.5);
+
+        opts.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerHTML = opt.text;
+            if (opt.isCorrect) btn.dataset.correct = 'true';
+            btn.onclick = () => handleAnswer(btn, opt.isCorrect);
+            optionsContainer.appendChild(btn);
+        });
     }
 
     // === イベントリスナー紐付け ===
     startBtn.addEventListener('click', initGame);
     retryBtn.addEventListener('click', initGame);
+    reviewBtn.addEventListener('click', initReviewMode);
+
+    // ヒントボタン挙動
+    hintBtn.addEventListener('click', () => {
+        if (hintBtn.disabled || isReviewMode) return;
+
+        // 10点減点（0未満にはならない）
+        score = Math.max(0, score - 10);
+        scoreEl.textContent = score;
+
+        // ヒントの表示
+        hintDisplay.textContent = currentQuestionData.hintText;
+        hintDisplay.classList.remove('hidden');
+
+        // 1問につき1回しか押せないようにする
+        hintBtn.disabled = true;
+    });
+
     titleBtn.addEventListener('click', () => {
         showScreen(titleScreen);
         loadRanking(); // タイトルに戻るたびにランキング更新

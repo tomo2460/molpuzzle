@@ -20,7 +20,7 @@
         <!-- タイトル画面 -->
         <div id="title-screen" class="screen active">
             <h1 class="logo">
-                <span class="m">M</span><span class="o">o</span><span class="l">l</span>
+                <span class="m">M</span><span class="o">o</span><span class="l">le</span>
                 <br>PUZZLE
             </h1>
             <p class="subtitle">60秒間、君の脳をモルモルさせよう！</p>
@@ -55,6 +55,12 @@
             <div class="question-container">
                 <div class="question-blob" id="question">1.0 mol</div>
                 <p class="question-text">と同じものはどれ？</p>
+
+                <!-- ヒントボタンエリア -->
+                <div class="hint-area">
+                    <button class="btn hint-btn" id="hint-btn">💡 原子量を見る（-10pt）</button>
+                    <div class="hint-display hidden" id="hint-display">H=1.0, O=16</div>
+                </div>
             </div>
 
             <!-- 選択肢領域 -->
@@ -80,6 +86,7 @@
             <p class="rank-message" id="rank-message">天才的モルマスター！</p>
             <div class="result-buttons">
                 <button id="retry-btn" class="btn primary-btn">もう一度プレイ</button>
+                <button id="review-btn" class="btn warning-btn hidden">間違えた問題を解き直す</button>
                 <button id="title-btn" class="btn secondary-btn">タイトルへ戻る</button>
             </div>
         </div>

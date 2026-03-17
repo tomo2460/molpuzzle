@@ -142,6 +142,13 @@ body {
     font-size: 1.2rem;
 }
 
+.warning-btn {
+    background-color: #f39c12;
+    color: white;
+    box-shadow: 0 6px 0px #d35400, 0 10px 10px rgba(0, 0, 0, 0.15);
+    font-size: 1.2rem;
+}
+
 /* スライム風装飾 */
 .blob {
     position: absolute;
@@ -293,6 +300,47 @@ body {
     border-radius: 20px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     z-index: 2;
+    margin-bottom: 0.5rem;
+}
+
+/* --- ヒント機能エリア --- */
+.hint-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.hint-btn {
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.5rem;
+    max-width: 200px;
+    background-color: var(--text-main);
+    color: white;
+    box-shadow: 0 4px 0px #2c3e50, 0 5px 5px rgba(0, 0, 0, 0.1);
+}
+
+.hint-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 0px #2c3e50;
+}
+
+.hint-display {
+    background: #f1c40f;
+    color: var(--text-main);
+    padding: 0.5rem 1.2rem;
+    border-radius: 10px;
+    font-weight: 900;
+    font-size: 1.1rem;
+    box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+    animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.hint-display.hidden {
+    display: none;
 }
 
 .options-container {

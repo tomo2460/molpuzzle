@@ -26,6 +26,22 @@ try {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // === チート対策：開発者ツールへのアクセスブロック ===
+    // 右クリック（コンテキストメニュー）を無効化し、ソース表示を防止
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // 開発者ツールを開くショートカットキーを無効化
+    document.addEventListener('keydown', (e) => {
+        // F12キー
+        if (e.key === 'F12') { e.preventDefault(); return; }
+        // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C（開発者ツール）
+        if (e.ctrlKey && e.shiftKey && ['I','i','J','j','C','c'].includes(e.key)) { e.preventDefault(); return; }
+        // Cmd+Option+I / Cmd+Option+J / Cmd+Option+C（Mac用）
+        if (e.metaKey && e.altKey && ['I','i','J','j','C','c'].includes(e.key)) { e.preventDefault(); return; }
+        // Ctrl+U / Cmd+U（ソース表示）
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) { e.preventDefault(); return; }
+    });
+
     // === DOM要素の取得 ===
     const titleScreen = document.getElementById('title-screen');
     const playScreen = document.getElementById('play-screen');
@@ -274,17 +290,10 @@ document.addEventListener('DOMContentLoaded', () => {
         H: 1.0, C: 12, N: 14, O: 16, Na: 23, Cl: 35.5
     };
 
-    const substances = [
-        { name: "水(H₂O)", mass: 18.0, isGas: false, hint: "H = 1.0, O = 16", hint2Type: "分子量" },
-        { name: "二酸化炭素(CO₂)", mass: 44.0, isGas: true, hint: "C = 12, O = 16", hint2Type: "分子量" },
-        { name: "酸素(O₂)", mass: 32.0, isGas: true, hint: "O = 16", hint2Type: "分子量" },
-        { name: "水素(H₂)", mass: 2.0, isGas: true, hint: "H = 1.0", hint2Type: "分子量" },
-        { name: "窒素(N₂)", mass: 28.0, isGas: true, hint: "N = 14", hint2Type: "分子量" },
-        { name: "炭素(C)", mass: 12.0, isGas: false, hint: "C = 12", hint2Type: "式量" },
-        { name: "塩化ナトリウム(NaCl)", mass: 58.5, isGas: false, hint: "Na = 23, Cl = 35.5", hint2Type: "式量" },
-        { name: "アンモニア(NH₃)", mass: 17.0, isGas: true, hint: "N = 14, H = 1.0", hint2Type: "分子量" },
-        { name: "メタン(CH₄)", mass: 16.0, isGas: true, hint: "C = 12, H = 1.0", hint2Type: "分子量" }
-    ];
+    // チート対策：物質データをBase64エンコードして直読みを防止
+    // 実行時にデコードして使用する
+    const _d = 'W3sibmFtZSI6IuawtChI4oKCTykiLCJtYXNzIjoxOCwiaXNHYXMiOmZhbHNlLCJoaW50IjoiSCA9IDEuMCwgTyA9IDE2IiwiaGludDJUeXBlIjoi5YiG5a2Q6YePIn0seyJuYW1lIjoi5LqM6YW45YyW54Kt57SgKENP4oKCKSIsIm1hc3MiOjQ0LCJpc0dhcyI6dHJ1ZSwiaGludCI6IkMgPSAxMiwgTyA9IDE2IiwiaGludDJUeXBlIjoi5YiG5a2Q6YePIn0seyJuYW1lIjoi6YW457SgKE/igoIpIiwibWFzcyI6MzIsImlzR2FzIjp0cnVlLCJoaW50IjoiTyA9IDE2IiwiaGludDJUeXBlIjoi5YiG5a2Q6YePIn0seyJuYW1lIjoi5rC057SgKEjigoIpIiwibWFzcyI6MiwiaXNHYXMiOnRydWUsImhpbnQiOiJIID0gMS4wIiwiaGludDJUeXBlIjoi5YiG5a2Q6YePIn0seyJuYW1lIjoi56qS57SgKE7igoIpIiwibWFzcyI6MjgsImlzR2FzIjp0cnVlLCJoaW50IjoiTiA9IDE0IiwiaGludDJUeXBlIjoi5YiG5a2Q6YePIn0seyJuYW1lIjoi54Kt57SgKEMpIiwibWFzcyI6MTIsImlzR2FzIjpmYWxzZSwiaGludCI6IkMgPSAxMiIsImhpbnQyVHlwZSI6IuW8j+mHjyJ9LHsibmFtZSI6IuWhqeWMluODiuODiOODquOCpuODoChOYUNsKSIsIm1hc3MiOjU4LjUsImlzR2FzIjpmYWxzZSwiaGludCI6Ik5hID0gMjMsIENsID0gMzUuNSIsImhpbnQyVHlwZSI6IuW8j+mHjyJ9LHsibmFtZSI6IuOCouODs+ODouODi+OCoihOSOKCgykiLCJtYXNzIjoxNywiaXNHYXMiOnRydWUsImhpbnQiOiJOID0gMTQsIEggPSAxLjAiLCJoaW50MlR5cGUiOiLliIblrZDph48ifSx7Im5hbWUiOiLjg6Hjgr/jg7MoQ0jigoQpIiwibWFzcyI6MTYsImlzR2FzIjp0cnVlLCJoaW50IjoiQyA9IDEyLCBIID0gMS4wIiwiaGludDJUeXBlIjoi5YiG5a2Q6YePIn1d';
+    const substances = JSON.parse(decodeURIComponent(escape(atob(_d))));
 
     const molPatterns = [0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0];
 

@@ -81,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentReviewIndex = 0;
     let currentQuestionData = null;
     let currentHintStage = 0; // 追加: 0=未クリック, 1=1回目(原子量)クリック済, 2=2回目(分子/式量)クリック済
+    let correctBtn = null; // チート対策: 正解ボタンの参照をDOMではなくJS内部で保持
 
     // === 音響エフェクト（Web Audio API） ===
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -404,13 +405,14 @@ document.addEventListener('DOMContentLoaded', () => {
             hint2Label: sub.hint2Type // ボタン表記変更用
         };
 
-        // 選択肢のボタンを生成する際に、正解かどうかをdatasetに持たせる
+        // 選択肢のボタンを生成（チート対策: 正解フラグはDOMに持たせず、JS内部変数で管理）
         optionsContainer.innerHTML = '';
+        correctBtn = null;
         options.forEach(opt => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
             btn.innerHTML = opt.text;
-            if (opt.isCorrect) btn.dataset.correct = 'true';
+            if (opt.isCorrect) correctBtn = btn;
             btn.onclick = () => handleAnswer(btn, opt.isCorrect);
             optionsContainer.appendChild(btn);
         });
@@ -459,12 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add('wrong');
 
             // 不正解のとき、どれが正解だったかを緑色でハイライトする
-            const allBtns = optionsContainer.querySelectorAll('.option-btn');
-            allBtns.forEach(b => {
-                if (b.dataset.correct === 'true') {
-                    b.classList.add('correct');
-                }
-            });
+            if (correctBtn) correctBtn.classList.add('correct');
 
             if (isReviewMode) {
                 // =============== 復習モード不正解時 ===============
@@ -534,11 +531,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // 毎回選択肢の場所をシャッフルし直す
         const opts = [...qData.options].sort(() => Math.random() - 0.5);
 
+        correctBtn = null;
         opts.forEach(opt => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
             btn.innerHTML = opt.text;
-            if (opt.isCorrect) btn.dataset.correct = 'true';
+            if (opt.isCorrect) correctBtn = btn;
             btn.onclick = () => handleAnswer(btn, opt.isCorrect);
             optionsContainer.appendChild(btn);
         });

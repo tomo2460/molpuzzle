@@ -53,6 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // === ゲーム状態変数 ===
     let score = 0;
     let timeLeft = 60;
+    let targetTimeLeft = 60; // 表示用と管理用の時間を分ける(ペナルティ減算なども加味した内部時間)
+    let startTime = 0;
+    let penaltyTime = 0; // ペナルティで削られた総秒数
     let timerId = null;
     let combo = 0;
 
@@ -137,15 +140,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === タイマー管理 ===
     function startTimer() {
+        if (isReviewMode) return; // 復習モードではタイマーを動かさない
+
+        // 実際のミリ秒時刻を記録
+        startTime = Date.now();
+        penaltyTime = 0;
         timeLeft = 60;
         timeEl.textContent = timeLeft;
+
         timerId = setInterval(() => {
-            timeLeft--;
+            // 現在の時刻と開始時刻の差分から経過時間を出し、ペナルティ分も差し引いて残り時間を正確に計算
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            timeLeft = Math.max(0, 60 - elapsed - penaltyTime);
+
             timeEl.textContent = timeLeft;
+
             if (timeLeft <= 0) {
                 endGame();
             }
-        }, 1000);
+        }, 100); // 1秒ではなく、0.1秒ごとに差分をチェックしてズレをなくす
     }
 
     function stopTimer() {
@@ -458,7 +471,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 combo = 0;
                 comboDisplay.classList.add('hidden');
-                // ペナルティ: スコア減点（スコア減算は残し、タイムロスのみ廃止）
+                // ペナルティ: スコア減点（スコア減算は残し、タイムロスのみ廃止とした場合はpenaltyTimeは操作しない）
+                // ※もし以前タイムロス(-3秒)を戻したい場合は penaltyTime += 3; を追加します。
                 score = Math.max(0, score - 50);
                 scoreEl.textContent = score;
 

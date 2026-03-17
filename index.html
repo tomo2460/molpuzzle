@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>モルパズル - 楽しくモル計算！</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts: POPで丸みのあるフォント -->
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;900&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (Compat版：ローカルでも動くように) -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+    <script src="script.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <!-- タイトル画面 -->
+        <div id="title-screen" class="screen active">
+            <h1 class="logo">
+                <span class="m">M</span><span class="o">o</span><span class="l">l</span>
+                <br>PUZZLE
+            </h1>
+            <p class="subtitle">60秒間、君の脳をモルモルさせよう！</p>
+            <button id="start-btn" class="btn primary-btn">GAME START</button>
+            <div class="character-area">
+                <!-- 装飾用のアニメーションキャラ（CSSで動かす） -->
+                <div class="blob blob1">1.0 mol</div>
+                <div class="blob blob2">22.4 L</div>
+            </div>
+
+            <!-- ランキング表示エリア（Top 3） -->
+            <div class="ranking-area">
+                <h3>👑 TOP 3 RANKING</h3>
+                <ul id="ranking-list">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- プレイ画面 -->
+        <div id="play-screen" class="screen hidden">
+            <div class="header">
+                <div class="score-display">SCORE: <span id="score">0</span></div>
+                <div class="time-display">TIME: <span id="time">60</span></div>
+            </div>
+
+            <div class="combo-display hidden" id="combo-display">
+                <!-- 初期は空にしておき、JSで動的に中身を入れる -->
+            </div>
+
+            <!-- 問題領域 -->
+            <div class="question-container">
+                <div class="question-blob" id="question">1.0 mol</div>
+                <p class="question-text">と同じものはどれ？</p>
+            </div>
+
+            <!-- 選択肢領域 -->
+            <div class="options-container" id="options">
+                <button class="option-btn">22.4 L</button>
+                <button class="option-btn">12 g (炭素C)</button>
+                <button class="option-btn">6.0×10²³ 個</button>
+                <button class="option-btn">0.5 mol</button>
+            </div>
+        </div>
+
+        <!-- リザルト画面 -->
+        <div id="result-screen" class="screen hidden">
+            <h2 class="result-title">TIME UP!</h2>
+            <div class="result-score-area">
+                <p>YOUR SCORE</p>
+                <div class="final-score" id="final-score">1200</div>
+            </div>
+            <div class="rank-area">
+                <p>RANK</p>
+                <div class="rank" id="rank">S</div>
+            </div>
+            <p class="rank-message" id="rank-message">天才的モルマスター！</p>
+            <div class="result-buttons">
+                <button id="retry-btn" class="btn primary-btn">もう一度プレイ</button>
+                <button id="title-btn" class="btn secondary-btn">タイトルへ戻る</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
